@@ -41,6 +41,64 @@ describe('new ReportTool(opts)', () => {
     const props = tool.parameters.properties as { result: { description: string } };
     expect(props.result.description).toBe('custom result desc');
   });
+
+  it('merges extraProperties + extraRequired into the schema (the citation seam)', () => {
+    const sources = {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { title: { type: 'string' }, url: { type: 'string' } },
+        required: ['title', 'url'],
+      },
+    };
+    const tool = new ReportTool({ extraProperties: { sources }, extraRequired: ['sources'] });
+    const props = tool.parameters.properties as Record<string, unknown>;
+    // `result` is preserved; `sources` is merged in alongside it.
+    expect(props).toHaveProperty('result');
+    expect(props.sources).toEqual(sources);
+    // Both are required — `result` first, extras appended.
+    expect(tool.parameters.required).toEqual(['result', 'sources']);
+  });
+
+  it('leaves the schema at the default {result} shape when no extras are passed', () => {
+    const tool = new ReportTool();
+    expect(Object.keys(tool.parameters.properties as object)).toEqual(['result']);
+    expect(tool.parameters.required).toEqual(['result']);
+  });
+
+  it('reserves `result`: extraProperties cannot override the built-in result schema', () => {
+    const tool = new ReportTool({
+      resultDescription: 'canonical result desc',
+      extraProperties: {
+        result: { type: 'number', description: 'bogus override' },
+        sources: { type: 'array' },
+      },
+    });
+    const props = tool.parameters.properties as {
+      result: { type: string; description: string };
+    };
+    // result stays the canonical string schema, not the caller's override…
+    expect(props.result.type).toBe('string');
+    expect(props.result.description).toBe('canonical result desc');
+    // …and remains first, with the non-reserved extra merged after it.
+    expect(Object.keys(tool.parameters.properties as object)).toEqual(['result', 'sources']);
+  });
+
+  it('de-duplicates `required` (result first) when extraRequired repeats or includes result', () => {
+    const tool = new ReportTool({
+      extraProperties: { sources: { type: 'array' } },
+      extraRequired: ['result', 'sources', 'sources'],
+    });
+    expect(tool.parameters.required).toEqual(['result', 'sources']);
+  });
+
+  it('throws when extraRequired names a property missing from extraProperties', () => {
+    // typo / extraRequired without the matching extraProperties → invalid schema
+    expect(() => new ReportTool({ extraRequired: ['sources'] })).toThrow(/not defined in extraProperties/);
+    expect(
+      () => new ReportTool({ extraProperties: { sources: { type: 'array' } }, extraRequired: ['sauces'] }),
+    ).toThrow(/"sauces"/);
+  });
 });
 
 describe('new DelegateTool(opts)', () => {
