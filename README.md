@@ -25,6 +25,43 @@ Free to use, embed, ship, and sell — commercial, private, internal, all of it.
 
 > The demo above is [**reasoning.run**](https://www.npmjs.com/package/reasoning.run), a deep-research CLI built with HDK. Try it in 30 seconds: `npx reasoning.run`.
 
+## Get started
+
+Scaffold your own harness — no API key, the model runs in-process:
+
+```bash
+npx harness.dev new              # interactive: name → surfaces → model → template
+cd my-harness && npm install
+npm start
+```
+
+```text
+scaffolded acme (blank) · targets: cli, desktop, web · model: qwen3.5-4b
+  Model      qwen3.5-4b                    ● resident
+  Inference  local · no provider endpoint  ● offline
+  ready — type to begin, ctrl-c to stop
+```
+
+The default **blank** scaffold ships the `lloyal/wikipedia` App (no auth) so the first command works with no key and no setup; `--template research` wires the tuned research pipeline over `lloyal/web` + `lloyal/corpus`.
+
+**Run any surface** off the same program — same events, different binding:
+
+```bash
+npm start              # cli    — the terminal app
+npm run dev:desktop    # desktop — an Electron window
+npm run serve          # web    — boot the local host, then `npm run dev:web`
+```
+
+**Then, without touching `harness.ts`:**
+
+```bash
+harness.dev install lloyal/web      # add a signed capability
+harness.dev targets:add web         # add a surface
+harness.dev app:new jira            # scaffold your own capability → publish
+```
+
+Full command surface → [`harness.dev`](./packages/harness-cli/README.md).
+
 ## The shift
 
 The unit you build moves from *an inference endpoint your app calls* to *an application your app is*. When the model is remote, every agent is a fresh conversation you re-feed context to, and concurrency multiplies cost linearly. When the model is embedded, agents fork a shared line of reasoning for free, correct each other in real time, and synthesize — coordination patterns that simply aren't expressible over API calls.
@@ -40,25 +77,6 @@ That difference isn't faster inference. It's a different *kind* of capability, a
 - **One harness, every surface, every tier.** Write the program once; each surface — terminal, desktop, browser — is a binding over the same events, all folding one `reduce`. The same contract runs it on a laptop, a shared GPU box, or a served fleet. *Where* it runs is a deployment decision, not an application one.
 
 Mechanics, receipts, and the case for the architecture at [hdk.lloyal.ai](https://hdk.lloyal.ai).
-
-## Quickstart
-
-Scaffold a batteries-included harness — no API key, the model runs in-process:
-
-```bash
-npx harness.dev new my-harness
-cd my-harness && npm install
-npm start                        # launch the terminal app, then type your question
-```
-
-The default **blank** scaffold ships the `lloyal/wikipedia` App (no auth — it reads Wikipedia's public REST) so the first command works with no key and no setup; `--template research` instead wires the tuned research pipeline over `lloyal/web` + `lloyal/corpus`. Run any surface off the same program:
-
-```bash
-npm start              # cli    — the terminal app
-npm run dev:desktop    # desktop — an Electron window
-npm run serve          # web    — boot the local host …
-npm run dev:web        #        … then serve it to a browser over wss
-```
 
 ## The programming model
 
