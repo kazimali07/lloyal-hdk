@@ -5,13 +5,15 @@
 [![License](https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue.svg)](LICENSE)
 [![Commercial Use](https://img.shields.io/badge/commercial%20use-unrestricted-brightgreen.svg)](#why-fsl-instead-of-mit)
 
-**In-app intelligence — AI as a feature of your application, not an API call.**
+**Vertical inference — put the model *inside* your application.**
 
-*Full-stack agentic AI framework for [llama.cpp](https://github.com/ggml-org/llama.cpp).*
+*A full-stack agentic AI framework with the model in your process. Build intelligence as a program you own, not as calls to a remote API.*
 
-HDK agents are branches of a live llama.cpp KV cache running inside your Node process — same process, same memory, same data structures as the rest of your code. Tools prefill results directly into the model's attention state under structured concurrency. No inference server, no vector DB, no embedding pipeline, no permission proxy, no context assembler. The agent is already where the context lives.
+> **Post-training produces a tendency. A harness produces a procedure.**
 
-Forking a sub-agent inherits the parent's full attention state at zero tensor copy: **4.4× fewer tokens processed** than prompt-rebuilding approaches, **O(1) spawns**, agent lifetimes bound to your application's scopes. Embed it in a desktop app, bundle in a CLI, deploy to a serverless function — anywhere Node runs.
+An inference endpoint makes a model **callable** — you send text, you get text, and the reasoning lives behind an HTTP boundary you can't reach. HDK makes it **programmable**: the model runs inside your Node process, and your application addresses its *live attention state* directly — forking lines of reasoning, admitting evidence mid-generation, deciding what becomes a durable result. Same process, same memory, same data structures as the rest of your code. No inference server, no vector DB, no embedding pipeline, no per-token bill.
+
+You write the reasoning once as an ordinary TypeScript program — a **harness** — and run it as a terminal app, a desktop app, or a served browser app off that one program. Every agent scaffold starts with `API_KEY=`. **A harness starts with a model.** Nothing on the reasoning path touches a third-party API; `grep API_KEY` in a scaffolded project finds nothing.
 
 Free to use, embed, ship, and sell — commercial, private, internal, all of it. The one carve-out — forking the runtime to compete — is the [trust boundary](#why-fsl-instead-of-mit) that keeps capability-bearing apps installable safely. Converts to Apache 2.0 on a rolling two-year schedule.
 
@@ -23,54 +25,75 @@ Free to use, embed, ship, and sell — commercial, private, internal, all of it.
 
 > The demo above is [**reasoning.run**](https://www.npmjs.com/package/reasoning.run), a deep-research CLI built with HDK. Try it in 30 seconds: `npx reasoning.run`.
 
+## The shift
+
+The unit you build moves from *an inference endpoint your app calls* to *an application your app is*. When the model is remote, every agent is a fresh conversation you re-feed context to, and concurrency multiplies cost linearly. When the model is embedded, agents fork a shared line of reasoning for free, correct each other in real time, and synthesize — coordination patterns that simply aren't expressible over API calls.
+
+That difference isn't faster inference. It's a different *kind* of capability, and it's a cross-product, not one API: your application composes **topology** (which lines of reasoning exist and how they relate) × **observation** (watching a generation as it runs) × **evidence** (what gets admitted into context, and when) × **lifecycle** (when output becomes an accepted result) × **authority** (which capabilities a step may use) × **continuity** (the same program, preserved across turns, models, surfaces, and deployments). The model runs inside the harness — governed, forkable, and yours.
+
 ## What you get
 
-- **Structured Concurrency.** Agents bind to parent scopes via [Effection](https://frontside.com/effection); cancellation propagates, teardown runs in reverse. The model that powers Kotlin coroutines, Swift Tasks, Java Project Loom, and C++26 — applied to GPU-native agents.
-- **Continuous-Context Agents.** The runtime schedules memory, not strings: shared context is *inherited, not re-sent* — forks are O(1), zero tensor copy, sub-agents attend over the parent's full state instead of re-encoding lossy summaries. **4.4× fewer tokens processed** than a prompt-rebuilding approach.
-- **Deep agents, native.** Elsewhere a sub-agent is a fresh conversation handed a task brief. Here it's a fork of the parent's live attention — full inheritance for free, or a clean-spine fork when you *want* quarantine. Delegation nests to any depth; every subtree is a scope that unwinds cleanly.
-- **Retrieval-Interleaved Generation.** Agents assemble context _during_ generation — searching, reading, and reranking across your app's own data. One `Source` shape for files, SQL, the web, or user records. A cross-encoder focal lens admits only verbatim top-K chunks — never summarized.
+- **A programming model, not an SDK.** A harness is *a tree of owned lifetimes over a tree of live inference state.* Agents bind to parent scopes via [Effection](https://frontside.com/effection) structured concurrency — cancellation propagates, teardown runs in reverse, cleanup is inseparable from ownership. Loops, conditions, and lexical scope **are** your orchestration; there's no graph DSL to learn.
+- **Continuous-context agents.** Sub-agents fork the parent's full attention at zero tensor copy — one shared model context, N branches, **one GPU dispatch per tick regardless of branch count.** A fork is a bitset flip, not a recompute; cost tracks KV *fullness*, not agent count, so two vs. ten concurrent agents decode at the same per-tick speed. *(Code-confirmed against the vendored llama.cpp build — see [Why in-process](#why-in-process-is-a-different-capability).)* The result: **4.4× fewer tokens processed** than a prompt-rebuilding pipeline.
+- **Retrieval-interleaved generation.** Agents assemble context _during_ generation — searching, reading, and reranking across your app's own data. One `Source` shape for files, SQL, the web, or user records. A cross-encoder focal lens admits only verbatim top-K chunks — never summarized.
+- **A signed App platform.** Capabilities — web search, browser automation, payment connectors, your company's data — install as **Apps** from a curated channel at [`apps.lloyal.ai`](https://apps.lloyal.ai). Every bundle is Ed25519-signed and verified against an embedded trust root *before it runs*; the CLI shows an App's *attention surface* — protocol, tools, config, skill lines — from the verified bytes first. What you install is what was reviewed.
+- **One harness, every surface, every tier.** Write the program once; each surface — terminal, desktop, browser — is a binding over the same events, all folding one `reduce`. The same contract runs it on a laptop, a shared GPU box, or a served fleet. *Where* it runs is a deployment decision, not an application one.
 
 Mechanics, receipts, and the case for the architecture at [hdk.lloyal.ai](https://hdk.lloyal.ai).
 
-## Requirements
+## Quickstart
 
-- **Node 22+**
-- **A GGUF model file on disk** — any model supported by llama.cpp
-- macOS / Linux / Windows on x64 or arm64. CPU works; CUDA / Metal / Vulkan supported via prebuilt native binaries.
-
-## Install
+Scaffold a batteries-included harness — no API key, the model runs in-process:
 
 ```bash
-npm i @lloyal-labs/lloyal-agents @lloyal-labs/lloyal.node @lloyal-labs/rig
-```
-
-| Package         | Role                                                                                                                          |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `lloyal-agents` | Agent runtime — tick loop, orchestrators, policy, App protocol primitives                                                     |
-| `lloyal.node`   | Native binding for llama.cpp ([liblloyal](https://github.com/lloyal-ai/liblloyal)); prebuilt for 13 platform/GPU combinations |
-| `rig`           | App protocol helpers + retrieval providers — `defineApp`, `createAppRegistry`, `PlanTool`, `DelegateTool`, `reportTool`       |
-
-`harness.dev` (the CLI for scaffolding harnesses + Apps, and for publishing / installing signed Apps) is a separate Apache-licensed package — install only when you need it:
-
-```bash
-npm i -g harness.dev
-```
-
-## Build a harness
-
-A **harness** is your application with embedded HDK agents — the runnable product you ship to a user. It owns model boot, App registration via `createAppRegistry`, orchestrator topology (`parallel` / `chain` / `fanout` / `dag`), and event handling. Every developer using HDK ships a harness: a CLI like [`reasoning.run`](https://www.npmjs.com/package/reasoning.run), a desktop app's research mode, a serverless function, your existing Node app's AI feature.
-
-### Scaffold (recommended)
-
-```bash
-npx harness.dev my-harness
+npx harness.dev new my-harness
 cd my-harness && npm install
-npm run dev "Who founded Brasília?"
+npm start                        # launch the terminal app, then type your question
 ```
 
-The scaffold ships preinstalled with the `lloyal/wikipedia` App (no auth, runs against Wikipedia's public REST) so `npm run dev` works on first command. Edit `src/main.ts` to add real Apps via `harness.dev install <publisher>/<name>`.
+The default **blank** scaffold ships the `lloyal/wikipedia` App (no auth — it reads Wikipedia's public REST) so the first command works with no key and no setup; `--template research` instead wires the tuned research pipeline over `lloyal/web` + `lloyal/corpus`. Run any surface off the same program:
+
+```bash
+npm start              # cli    — the terminal app
+npm run dev:desktop    # desktop — an Electron window
+npm run serve          # web    — boot the local host …
+npm run dev:web        #        … then serve it to a browser over wss
+```
+
+## The programming model
+
+The application contract is deliberately small — a harness is a scope that stays alive for a Session:
+
+```typescript
+export function* harness(
+  ctx: SessionContext,               // the resident model + native session
+  events: EventBus<WorkflowEvent>,   // application events → whichever surface is mounted
+  commands: Signal<Command, void>,   // typed commands ← that surface
+): Operation<void> {
+  const { session } = yield* initAgents(ctx);
+
+  for (const command of yield* each(commands)) {
+    // Borrow a shared line of live attention; fork a cohort of agents over it.
+    const notes = yield* withSpine({ parent: session.trunk, systemPrompt, tools }, function* (spine) {
+      const pool = yield* agentPool({ parent: spine, terminal: reportTool, orchestrate: parallel(tasks) });
+      return pool.agents.flatMap((a) => (a.result ? [a.result] : []));  // findings leave as data
+    });
+
+    const synth = yield* useAgent({ parent: session.trunk, task: renderSynthesis(notes) });
+    yield* call(() => session.commitTurn(command.query, synth.result));  // durable, deliberately
+
+    yield* each.next();
+  }
+}
+```
+
+Three trees describe one run, and they don't have to line up: the **lifetime tree** (Effection — what ends together), the **inference-state tree** (BranchStore — what attention is inherited), and the **orchestration graph** (your code — what depends on what). When the Session is released, the harness scope ends and every child — pools, tool calls, temporary branches — unwinds with it. You never enumerate what to cancel; the ownership tree already knows.
+
+Reshape execution — breadth, depth, or a graph — by wrapping the pool in a `parallel` / `chain` / `fanout` / `dag` orchestrator, without changing the call. Full model at [docs.lloyal.ai](https://docs.lloyal.ai/start-here/what-is-the-hdk).
 
 ### Embed in an existing project
+
+Skip the scaffold and wire the runtime into code you already have:
 
 ```bash
 npm i @lloyal-labs/lloyal-agents @lloyal-labs/lloyal.node @lloyal-labs/rig
@@ -81,59 +104,59 @@ npx harness.dev install lloyal/wikipedia   # or lloyal/web, lloyal/corpus, acme/
 import { main, call } from "effection";
 import { createContext } from "@lloyal-labs/lloyal.node";
 import { initAgents, useAgent } from "@lloyal-labs/lloyal-agents";
-import {
-  createAppRegistry,
-  createInMemoryConfigStore,
-  reportTool,
-} from "@lloyal-labs/rig";
+import { createAppRegistry, createInMemoryConfigStore, reportTool } from "@lloyal-labs/rig";
 import { createWikipediaApp } from "@lloyal-labs/wikipedia-app";
 
 main(function* () {
   const ctx = yield* call(() =>
-    createContext({
-      modelPath: "model.gguf",
-      nCtx: 32768,
-      nSeqMax: 8,
-      typeK: "q4_0",
-      typeV: "q4_0",
-    }),
+    createContext({ modelPath: "model.gguf", nCtx: 32768, nSeqMax: 8, typeK: "q4_0", typeV: "q4_0" }),
   );
   yield* initAgents(ctx);
 
-  // Enable an App — its Tools, Source, and skill template
-  // wire into the runtime through the registry.
-  const configStore = createInMemoryConfigStore();
-  const registry = yield* createAppRegistry({ configStore });
+  const registry = yield* createAppRegistry({ configStore: createInMemoryConfigStore() });
   const wikipedia = yield* registry.enable(createWikipediaApp);
 
   const a = yield* useAgent({
     systemPrompt: "You are a research assistant.",
     task: "Who founded the city of Brasília, and when?",
-    tools: [...wikipedia.tools, reportTool],
-    terminalToolName: "report",
+    tools: [...wikipedia.tools],
+    terminal: reportTool,
   });
 
   console.log(a.result);
 });
 ```
 
-For multi-app harnesses, swap `parallel` / `chain` / `fanout` / `dag` orchestrators around an `agentPool` to reshape execution without changing the call.
+## Apps — the signed capability channel
 
-## Extend your harness
-
-Capabilities — web search, browser automation, payment connectors, your company's data — live in **Apps**: signed, reviewed bundles installed from the channel at [`apps.lloyal.ai`](https://apps.lloyal.ai). An App wraps a Source + Tools + per-spawn skill template + manifest, validated by `defineApp`. Three reference Apps ship first-party: `lloyal/web` (web search + page fetch), `lloyal/corpus` (local-doc grep + read + semantic search), and `lloyal/wikipedia` (the auth-free demo backend the scaffolder uses).
+An **App** wraps a Source + Tools + a per-spawn skill template + a manifest, validated by `defineApp`. Three reference Apps ship first-party: `lloyal/web` (web search + page fetch), `lloyal/corpus` (local-doc grep + read + semantic search), and `lloyal/wikipedia` (the auth-free demo backend the **blank** scaffold defaults to).
 
 ```bash
 npx harness.dev install lloyal/web         # install a reviewed capability
-npx harness.dev install lloyal/corpus
+harness.dev targets:add web                # add a surface — never touches harness.ts
+harness.dev models:use <id>                # swap the resident model
 ```
 
-Shipping a capability of your own — a vertical API, your company's internal data, a browser-automation runtime — means publishing an App through the channel for other harnesses to install:
+Shipping a capability of your own — a vertical API, your company's internal data, a browser-automation runtime — means publishing an App through the channel for other harnesses to install. First- and third-party ride the same Ed25519-verified path:
 
 ```bash
-npx harness.dev app jira --publisher acme  # scaffold an App
-npx harness.dev publish                    # ship through the signed channel
+npx harness.dev app:new jira --publisher acme  # scaffold an App
+npx harness.dev publish                        # ship through the signed channel
 ```
+
+## Why in-process is a different capability
+
+Most "AI for TypeScript" tools are a **client to an inference endpoint** — the Vercel AI SDK calls a provider's API; LangGraph orchestrates a graph of calls over one; even "local," through Ollama, the model is a separate daemon you POST to. The model is a service behind a boundary, so every agent, every turn, re-ships its context and pays per token.
+
+HDK isn't a client — it's a **runtime that embeds the model**, the way an app embeds SQLite instead of reaching a database over the network. The weights are resident in your process, and your harness governs the model's *live* reasoning state as it runs. That's the difference between renting behaviour request-by-request and owning it as code — and it's why concurrent agents are cheap. Endpoint tools coordinate agents like **VMs**: each a full, isolated context you stand up and re-feed. HDK runs them like **containers on one kernel**: every agent is a zero-copy *branch* of one resident model state.
+
+The mechanism is verifiable, not marketing — the numbers below are **code-confirmed against the vendored llama.cpp build**, read from source, not reconstructed:
+
+- **N branches, one dispatch.** N branches that fit the micro-batch decode in **one `llama_decode`** — the batch splitter cuts on token rows and never reads `seq_id`. GPU dispatches per tick are **O(1) in branch count**.
+- **Forking is free.** A fork (`seq_cp`) allocates no cells and copies no buffer — it's a single `std::bitset<LLAMA_MAX_SEQ>` write, one cell now owned by two branches. Zero decode, zero attention compute. *This is* prefix sharing, by construction.
+- **Cost is KV fullness, not agent count.** Per-tick wall-time is `O(n_kv × token_rows)` — there is no `× n_seqs` multiplier. **Two vs. ten concurrent agents decode at the same per-tick speed;** concurrency is free on compute and priced only in KV *space*.
+
+If you know the serving stack: vLLM and SGLang already reuse prefixes (RadixAttention) — but as a **server**, where the shared prefix is a token-keyed KV *cache* (radix-matched, LRU-evicted; a miss recomputes) reached over an API. HDK puts that tree *inside your application*: a branch is a structural **back-reference** into its parent's live cells (nothing to match, cache, or evict), pruned **semantically** when the reasoning is done — governed by policy, not evicted when a cache runs cold. A cloud per-token API structurally cannot replicate this economics.
 
 ## Stack vs. imports
 
@@ -146,6 +169,7 @@ The honest comparison is full stack against full stack. Each row of the right co
 | Vector DB (Pinecone / Weaviate / pgvector) + embedding pipeline | Apps (`@lloyal-labs/web-app`, `@lloyal-labs/corpus-app`, your own) |
 | Retrieval orchestration (Haystack / LlamaIndex)                 | `@lloyal-labs/rig`                    |
 | Process orchestrator (Docker compose / Kubernetes / Airflow)    | TypeScript scopes (Effection)         |
+| Frontend transport + served fanout                              | `@lloyal-labs/binding` + `@lloyal-labs/host` / `@lloyal-labs/relay` |
 | Glue code                                                       | `npm i`                               |
 
 ## Public API
@@ -153,43 +177,17 @@ The honest comparison is full stack against full stack. Each row of the right co
 ```typescript
 // Agent runtime
 import {
-  initAgents,
-  useAgent,
-  agent,
-  agentPool,
-  useAgentPool,
-  diverge,
-  parallel,
-  chain,
-  fanout,
-  dag,
-  reduce,
-  withSpine,
-  Tool,
-  Source,
-  DefaultAgentPolicy,
-  Ctx,
-  Store,
-  Events,
-  AppRegistryCtx,
-  AppConfigStoreCtx,
-  GrantStoreCtx,
-  RerankerCtx,
+  initAgents, useAgent, agent, agentPool, useAgentPool, diverge,
+  parallel, chain, fanout, dag, reduce, withSpine,
+  Tool, Source, DefaultAgentPolicy,
+  Ctx, Store, Events, AppRegistryCtx, AppConfigStoreCtx, GrantStoreCtx, RerankerCtx,
 } from "@lloyal-labs/lloyal-agents";
 
 // App protocol + framework tools
 import {
-  defineApp,
-  createAppRegistry,
-  createInMemoryConfigStore,
-  createGrantStore,
-  renderSpine,
-  renderAgentPreamble,
-  reportTool,
-  PlanTool,
-  DelegateTool,
-  TavilyProvider,
-  createKeylessSearchProvider,
+  defineApp, createAppRegistry, createInMemoryConfigStore, createGrantStore,
+  renderSpine, renderAgentPreamble,
+  reportTool, PlanTool, DelegateTool, TavilyProvider, createKeylessSearchProvider,
 } from "@lloyal-labs/rig";
 ```
 
@@ -199,14 +197,17 @@ That is essentially the framework.
 
 ```
 packages/
-  agents/        @lloyal-labs/lloyal-agents — agent runtime + App protocol primitives
-  sdk/           @lloyal-labs/sdk           — inference primitives (Branch, Session, Rerank)
+  agents/        @lloyal-labs/lloyal-agents — agent runtime — structured concurrency over shared KV state
+  sdk/           @lloyal-labs/sdk           — backend-agnostic inference primitives (Branch, Session, Rerank)
   rig/           @lloyal-labs/rig           — App protocol helpers + retrieval providers + framework tools
+  binding/       @lloyal-labs/binding       — the harness's headless interface: the event/command binding + its transports
+  host/          @lloyal-labs/host          — the box model-runtime host: one resident model, N native harness sessions
+  relay/         @lloyal-labs/relay         — the self-hostable relay: serves a headless harness to remote frontends over wss
   apps/
     web/         @lloyal-labs/web-app       — first-party web research App
     corpus/      @lloyal-labs/corpus-app    — first-party local-corpus research App
     wikipedia/   @lloyal-labs/wikipedia-app — first-party Wikipedia demo App
-  harness-cli/   harness.dev                — scaffolding + publish + install + review CLI
+  harness-cli/   harness.dev                — scaffold · install · publish · review CLI (Apache 2.0)
 
 examples/
   compare/       DAG primer (App-protocol-shaped): parallel research → compare → synthesize
@@ -214,7 +215,14 @@ examples/
   reflection/    Pre-App-protocol `diverge` primer (research → draft → critique → revise)
 ```
 
-`reasoning.run` is the production-grade 3.0 reference harness — `npx reasoning.run` and read its source. The native binding [`@lloyal-labs/lloyal.node`](https://github.com/lloyal-ai/lloyal.node) lives in a separate repo and is pulled in as a dependency.
+`reasoning.run` is the production-grade reference harness — `npx reasoning.run` and read its source. The native binding [`@lloyal-labs/lloyal.node`](https://github.com/lloyal-ai/lloyal.node) lives in a separate repo and is pulled in as a dependency.
+
+## Requirements
+
+- **Node 22+**
+- **A GGUF model file on disk** — any model the native backend supports (the scaffold fetches one, digest-verified, on first run)
+- macOS / Linux / Windows on x64 or arm64. CPU works; CUDA / Metal / Vulkan supported via prebuilt native binaries.
+- **Native backend:** [llama.cpp](https://github.com/ggml-org/llama.cpp) today, via `@lloyal-labs/lloyal.node`. The SDK and harness contracts sit above the engine — intelligence is written against the runtime, not the backend.
 
 ## Compatibility
 
@@ -265,6 +273,6 @@ Safety has to be **upstream and structural**: the canonical channel at [apps.llo
 
 **Commercial use is unrestricted** — build and sell products with HDK, embed it in proprietary software, run it in production. The FSL restriction is narrow: you cannot ship a competing HDK runtime, managed HDK service, or alternative HDK App distribution channel.
 
-HDK 3.0 runtime packages (`@lloyal-labs/lloyal-agents`, `@lloyal-labs/sdk`, `@lloyal-labs/rig`, `@lloyal-labs/web-app`, `@lloyal-labs/corpus-app`, `@lloyal-labs/wikipedia-app`) are Fair Source under FSL-1.1-Apache-2.0 and convert to Apache 2.0 two years after each release. `packages/harness-cli` (the `harness.dev` CLI) is Apache 2.0 from day one — see its own `LICENSE` file.
+HDK runtime packages (`@lloyal-labs/lloyal-agents`, `@lloyal-labs/sdk`, `@lloyal-labs/rig`, `@lloyal-labs/binding`, `@lloyal-labs/host`, `@lloyal-labs/relay`, `@lloyal-labs/web-app`, `@lloyal-labs/corpus-app`, `@lloyal-labs/wikipedia-app`) are Fair Source under FSL-1.1-Apache-2.0 and convert to Apache 2.0 two years after each release. `packages/harness-cli` (the `harness.dev` CLI) is Apache 2.0 from day one — see its own `LICENSE` file.
 
 See [`LICENSE-FAQ.md`](./LICENSE-FAQ.md) for concrete examples of what's permitted and what's restricted, [`LICENSE`](./LICENSE) for the legal text, and [`NOTICE`](./NOTICE) for attribution.
