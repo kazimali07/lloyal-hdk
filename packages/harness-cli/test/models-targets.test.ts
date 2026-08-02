@@ -74,6 +74,7 @@ function pkg(dir: string): {
   scripts: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  main?: string;
   harnessdev?: { template: string; targets: string[]; apps?: string[] };
 } {
   return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
@@ -288,6 +289,16 @@ describe('targets:add (inverse of prune)', () => {
     delete p.harnessdev;
     writeFileSync(join(dir, 'package.json'), `${JSON.stringify(p, null, 2)}\n`);
     expect(await runIn(dir, () => targetsAddCommand.run(['web']))).toBe(1);
+  });
+
+  it('restores desktop’s `main` entry point + electron guard on add', async () => {
+    const dir = await scaffold('t6', 'cli'); // cli-only: prune dropped all three
+    expect(pkg(dir).main).toBeUndefined();
+    expect(await runIn(dir, () => targetsAddCommand.run(['desktop']))).toBe(0);
+    // Without `main`, electron-vite refuses to launch the added surface.
+    expect(pkg(dir).main).toBe('out/main/main.js');
+    expect(pkg(dir).scripts['prebuild:desktop']).toBe('node bin/ensure-electron.js');
+    expect(existsSync(join(dir, 'bin/ensure-electron.js'))).toBe(true);
   });
 
   it('folds the ORIGINATING template (research web is research’s, not basic’s)', async () => {
