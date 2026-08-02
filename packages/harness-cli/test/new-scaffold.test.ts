@@ -182,6 +182,7 @@ describe('newCommand.run — non-interactive flag path (end-to-end)', () => {
       'cli',
       '--model',
       './models/llm/mine.gguf',
+      '--skip-apps',
     ]);
     out.mockRestore();
 
@@ -198,7 +199,16 @@ describe('newCommand.run — non-interactive flag path (end-to-end)', () => {
     const parent = mkdtempSync(join(tmpdir(), 'harness-new-'));
     created.push(parent);
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    const code = await newCommand.run(['dflt', '--dir', parent, '--targets', 'cli', '--model', '   ']);
+    const code = await newCommand.run([
+      'dflt',
+      '--dir',
+      parent,
+      '--targets',
+      'cli',
+      '--model',
+      '   ',
+      '--skip-apps',
+    ]);
     out.mockRestore();
 
     expect(code).toBe(0);

@@ -33,7 +33,12 @@ function freshBlankTree(): string {
   return dir;
 }
 
-/** Scaffold a real project (template copied, pruned, model + marker written). */
+/**
+ * Scaffold a real project (template copied, pruned, model + marker written).
+ * `--skip-apps` keeps this hermetic — `new` otherwise fetches the template's
+ * default AgentApps from apps.lloyal.ai, which these tests neither need nor
+ * should depend on.
+ */
 async function scaffold(name: string, targets: string, template = 'basic'): Promise<string> {
   const parent = mkdtempSync(join(tmpdir(), 'mt-proj-'));
   created.push(parent);
@@ -47,6 +52,7 @@ async function scaffold(name: string, targets: string, template = 'basic'): Prom
     targets,
     '--model',
     'qwen3.5-4b',
+    '--skip-apps',
     '--yes',
   ]);
   expect(code).toBe(0);
@@ -68,7 +74,7 @@ function pkg(dir: string): {
   scripts: Record<string, string>;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
-  harnessdev?: { template: string; targets: string[] };
+  harnessdev?: { template: string; targets: string[]; apps?: string[] };
 } {
   return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
 }
@@ -365,9 +371,25 @@ describe('targets:list', () => {
 });
 
 describe('marker', () => {
-  it('new stamps harnessdev { template, targets }', async () => {
+  it('new stamps harnessdev { template, targets, apps }', async () => {
     const dir = await scaffold('mk1', 'cli,web', 'basic');
-    expect(pkg(dir).harnessdev).toEqual({ template: 'basic', targets: ['cli', 'web'] });
+    expect(pkg(dir).harnessdev).toEqual({
+      template: 'basic',
+      targets: ['cli', 'web'],
+      // Recorded even under --skip-apps: the harness still imports them, so
+      // `bin/run.js` needs the specs to name at boot.
+      apps: ['lloyal/wikipedia@1.2.0'],
+    });
+  });
+
+  it('a targets: verb carries `apps` through untouched', async () => {
+    const dir = await scaffold('mk2', 'cli,web', 'basic');
+    expect(await runIn(dir, () => targetsRemoveCommand.run(['web', '--yes']))).toBe(0);
+    expect(pkg(dir).harnessdev).toEqual({
+      template: 'basic',
+      targets: ['cli'],
+      apps: ['lloyal/wikipedia@1.2.0'],
+    });
   });
 });
 
