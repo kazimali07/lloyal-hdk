@@ -217,6 +217,20 @@ describe('newCommand.run — non-interactive flag path (end-to-end)', () => {
     expect(yml).not.toMatch(/(id|path):\s*""/);
   });
 
+  it('emits a real .gitignore (the template stores it undotted so npm ships it)', async () => {
+    const parent = mkdtempSync(join(tmpdir(), 'harness-new-'));
+    created.push(parent);
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const code = await newCommand.run(['ign', '--dir', parent, '--targets', 'cli', '--skip-apps']);
+    out.mockRestore();
+
+    expect(code).toBe(0);
+    const dir = join(parent, 'ign');
+    expect(existsSync(join(dir, '.gitignore'))).toBe(true);
+    expect(existsSync(join(dir, 'gitignore'))).toBe(false); // the undotted name must not leak
+    expect(readFileSync(join(dir, '.gitignore'), 'utf8')).toMatch(/^node_modules\/$/m);
+  });
+
   it('refuses to scaffold over an existing FILE (not just a directory)', async () => {
     const parent = mkdtempSync(join(tmpdir(), 'harness-new-'));
     created.push(parent);
